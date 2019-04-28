@@ -54,6 +54,7 @@ directly use a publisher/subscriber or log aggregation utility like Kafka
 
 
      $sbt
+     
      $run
 
 * Use Postman to test request at localhost:9000/submit , use example request from above
