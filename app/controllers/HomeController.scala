@@ -29,16 +29,33 @@ class HomeController @Inject()(system: ActorSystem, cc: ControllerComponents) ex
     Ok("Result Received")
   }
 
+
+  /*
+  *
+  * Criteria Submission Logic
+  *
+  * */
   def submitCriteria(): Action[JsValue] = Action(parse.json) {
     request => {
       val redisClient = new RedisClient("localhost", 6379)
       val futureTimeStamp = redisClient.time.get.head.get
 
       // Update time period to the next observation time
-      val newJsonBody = request.body.as[JsObject] ++ Json.obj("time_period" -> ((request.body \ "time_period").get.toString().toLong * 60 + futureTimeStamp.toLong))
+      val reqId = redisClient.incr("reqCntr")
+      val newJsonBody = generateWorkerQElement(request, futureTimeStamp, reqId)
       pushIntoQueue(redisClient, newJsonBody, (request.body \ "time_period").get.toString())
       Ok("Request Received Successfully")
     }
+  }
+
+  private def generateWorkerQElement(request: Request[JsValue], futureTimeStamp: String, reqId: Option[Long]): JsObject = {
+    (request.body.as[JsObject] ++
+      Json.obj("time_period" -> initializeNextHitTimestamp(request, futureTimeStamp))) ++
+      Json.obj("reqId" -> reqId.get.toString.toLong)
+  }
+
+  private def initializeNextHitTimestamp(request: Request[JsValue], futureTimeStamp: String): Json.JsValueWrapper = {
+    ((request.body \ "time_period").get.toString().toLong * 60 + futureTimeStamp.toLong)
   }
 
   def pushIntoQueue(redisClient: RedisClient, jsonBody: JsValue, period: String): Unit = {

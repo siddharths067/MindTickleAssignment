@@ -29,8 +29,10 @@ class Worker(period: Long) extends Thread {
   * */
 
   override def run(): Unit = {
+
     Logger.logger.debug("Worker Launched " + this.getId)
-    val myQueue = "worker_queue_" + period.toString
+    val myQueue = generateWorkerQId
+
     val redisClient = new RedisClient("localhost", 6379)
     while (true) {
 
@@ -54,7 +56,7 @@ class Worker(period: Long) extends Thread {
       }
       catch {
 
-        // On Connectivity Errors Backoff the request and delay its processing for next round
+        // On Connectivity Errors Backoff the request and delay its processing
 
         case ioExcept: IOException =>
           ioExcept.printStackTrace()
@@ -70,6 +72,7 @@ class Worker(period: Long) extends Thread {
         // Add request at the end and update its next time period
         Logger.logger.debug("Recovering from error, action delayed")
         redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+
       } else {
         Logger.logger.debug("Result Fetched " + resultBody)
 
@@ -79,12 +82,44 @@ class Worker(period: Long) extends Thread {
 
         // Fetch body parameters from observation URL
         val resultList = propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
-        if (resultList == valList)
-          Logger.logger.debug("The Result is " + resultBody.toString())
+        if (resultList == valList) {
+          // Get Previous Result
+          val prevResult = redisClient.get(getPrevResultKeyId(jsonBody))
+
+
+          // If Previous Result is defined output and publish it
+          if (prevResult.isDefined)
+            Logger.logger.debug("Previoud Valid Result was " + prevResult.get.toString)
+          if (prevResult.isDefined)
+            redisClient.publish(getChannelKey(jsonBody), "Previoud Valid Result was " + prevResult.get.toString)
+
+          // Output and Publish Request Result
+          Logger.logger.debug("The Result is " + resultBody.toString)
+          redisClient.publish(getChannelKey(jsonBody), "The Result is " + resultBody.toString)
+
+          // Store Previous result
+          redisClient.set(getPrevResultKeyId(jsonBody), resultBody.toString)
+        }
         // Update time period and Add to queue
         redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
       }
     }
+  }
+
+  private def generateWorkerQId: String = {
+    "worker_queue_" + period.toString
+  }
+
+  private def getChannelKey(jsonBody: JsValue) = {
+    "Channel" + "prevReqRes" + getRequestId(jsonBody)
+  }
+
+  private def getPrevResultKeyId(jsonBody: JsValue) = {
+    "prevReqRes" + getRequestId(jsonBody)
+  }
+
+  private def getRequestId(jsonBody: JsValue): Long = {
+    (jsonBody \ "reqId").get.toString.toLong
   }
 
   @throws(classOf[java.io.IOException])
