@@ -22,19 +22,18 @@ class HomeController @Inject()(system: ActorSystem, cc: ControllerComponents) ex
     * will be called when the application receives a `GET` request with
     * a path of `/`.
     */
-  def index() = Action { request => {
+  def index() = Action {
     val redis = new RedisClient("localhost", 6379)
     val futurePong = redis.ping
     println(futurePong.get + "Received")
     Ok("Result Received")
-  }
   }
 
   def submitCriteria(): Action[JsValue] = Action(parse.json) {
     request => {
       val redisClient = new RedisClient("localhost", 6379)
       val futureTimeStamp = redisClient.time.get.head.get
-      val jsonBody = request.body
+
       // Update time period to the next observation time
       val newJsonBody = request.body.as[JsObject] ++ Json.obj("time_period" -> ((request.body \ "time_period").get.toString().toLong * 60 + futureTimeStamp.toLong))
       pushIntoQueue(redisClient, newJsonBody, (request.body \ "time_period").get.toString())
@@ -44,7 +43,7 @@ class HomeController @Inject()(system: ActorSystem, cc: ControllerComponents) ex
 
   def pushIntoQueue(redisClient: RedisClient, jsonBody: JsValue, period: String): Unit = {
     // Segregate Requests into bucket
-    val queueNewSize = redisClient.lpush("worker_queue_" + period, jsonBody.toString())
+    redisClient.lpush("worker_queue_" + period, jsonBody.toString())
 
     val incr = redisClient.incr("requestCountForQ" + period.toString)
     // Check if the request was the first in the bucket

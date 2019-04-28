@@ -63,7 +63,7 @@ class Worker(period: Long) extends Thread {
         case socketTimeout: SocketTimeoutException =>
           socketTimeout.printStackTrace()
           JsNull
-        
+
 
       }
       if (resultBody == JsNull) {
@@ -76,7 +76,6 @@ class Worker(period: Long) extends Thread {
         // Get Property Lists and their target list
         val propertyList = getJsonCriteriaList(jsonBody)
         val valList = getJsonPropertyCriteraValues(jsonBody).map(x => cleanJsonQuotes(x.toString()))
-        val tempres = getPropertyRecursively(resultBody, propertyList.head).head.toString()
 
         // Fetch body parameters from observation URL
         val resultList = propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
