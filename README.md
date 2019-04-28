@@ -7,6 +7,11 @@ An Initial Build of Zapier Like Integration Service using Redis for Queuing
 * Redis (hosted at default port)
 * Postman for API Testing
 
+### Overview of Directory
+
+* app/controllers.HomeController.scala has the controller logic
+* app/multithreading/Worker.scala has the worker logic
+
 ### Input Format
 
 ```$xslt
