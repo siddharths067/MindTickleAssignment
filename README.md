@@ -83,7 +83,7 @@ Although Kafka would be a better for Log Aggregation use case
 ### Scope for Improvement
 
   * The process I use for requesting new threads can in cases of a very very large request influx
-  at a single moment can cause rapid expansion till one to one mapping is reached. By this time we
+  at a single moment in a single bucket can cause rapid expansion till one to one mapping is reached. By this time we
   could theoretically lead to some threads who when detect an empty queue now would start to kill themselves
   till we end up with a one to one mapping.
   **We don't need one to one mapping, so the number of threads in the system will further continue to shrink till an 
