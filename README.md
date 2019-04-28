@@ -86,7 +86,7 @@ Although Kafka would be a better for Log Aggregation use case
   at a single moment can cause rapid expansion till one to one mapping is reached. By this time we
   could theoretically lead to some threads who when detect an empty queue now would start to kill themselves
   till we end up with a one to one mapping.
-  **We don't need one to one mapping, so the system will further continue to shrink till an 
+  **We don't need one to one mapping, so the number of threads in the system will further continue to shrink till an 
   equilibrium is reached, influx in such cases could lead to an unstable system that could oscillate
   for a time by creating and killing threads until it decays to a minima**
   
