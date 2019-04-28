@@ -51,27 +51,10 @@ class Worker(period: Long) extends Thread {
 
       // Get data from observation url
       val observedUrl = getJsonObservedUrl(jsonBody)
-      val resultBody = try {
-        Json.parse(get(cleanJsonQuotes(observedUrl)))
-      }
-      catch {
-
-        // On Connectivity Errors Backoff the request and delay its processing
-
-        case ioExcept: IOException =>
-          ioExcept.printStackTrace()
-          JsNull
-
-        case socketTimeout: SocketTimeoutException =>
-          socketTimeout.printStackTrace()
-          JsNull
-
-
-      }
+      val resultBody = fetchRemoteAPIResult(observedUrl)
       if (resultBody == JsNull) {
         // Add request at the end and update its next time period
-        Logger.logger.debug("Recovering from error, action delayed")
-        redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+        delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
 
       } else {
         Logger.logger.debug("Result Fetched " + resultBody)
@@ -81,28 +64,69 @@ class Worker(period: Long) extends Thread {
         val valList = getJsonPropertyCriteraValues(jsonBody).map(x => cleanJsonQuotes(x.toString()))
 
         // Fetch body parameters from observation URL
-        val resultList = propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
+        val resultList = fetchRemoteResultProperties(resultBody, propertyList)
         if (resultList == valList) {
           // Get Previous Result
           val prevResult = redisClient.get(getPrevResultKeyId(jsonBody))
 
 
-          // If Previous Result is defined output and publish it
-          if (prevResult.isDefined)
-            Logger.logger.debug("Previoud Valid Result was " + prevResult.get.toString)
-          if (prevResult.isDefined)
-            redisClient.publish(getChannelKey(jsonBody), "Previoud Valid Result was " + prevResult.get.toString)
+          publishPreviousResult(redisClient, jsonBody, prevResult)
 
-          // Output and Publish Request Result
-          Logger.logger.debug("The Result is " + resultBody.toString)
-          redisClient.publish(getChannelKey(jsonBody), "The Result is " + resultBody.toString)
+          publishCurrentResult(redisClient, jsonBody, resultBody)
 
           // Store Previous result
-          redisClient.set(getPrevResultKeyId(jsonBody), resultBody.toString)
+          updatePreviousResult(redisClient, jsonBody, resultBody)
         }
         // Update time period and Add to queue
         redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
       }
+    }
+  }
+
+  private def fetchRemoteResultProperties(resultBody: JsValue, propertyList: List[JsValue]): List[String] = {
+    propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
+  }
+
+  private def delayFailedRequestProcessing(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
+    Logger.logger.debug("Recovering from error, action delayed")
+    redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+  }
+
+  private def updatePreviousResult(redisClient: RedisClient, jsonBody: JsValue, resultBody: JsValue): Boolean = {
+    redisClient.set(getPrevResultKeyId(jsonBody), resultBody.toString)
+  }
+
+  private def publishCurrentResult(redisClient: RedisClient, jsonBody: JsValue, resultBody: JsValue): Option[Long] = {
+    // Output and Publish Request Result
+    Logger.logger.debug("The Result is " + resultBody.toString)
+    redisClient.publish(getChannelKey(jsonBody), "The Result is " + resultBody.toString)
+  }
+
+  private def publishPreviousResult(redisClient: RedisClient, jsonBody: JsValue, prevResult: Option[String]): Any = {
+    // If Previous Result is defined output and publish it
+    if (prevResult.isDefined)
+      Logger.logger.debug("Previoud Valid Result was " + prevResult.get.toString)
+    if (prevResult.isDefined)
+      redisClient.publish(getChannelKey(jsonBody), "Previoud Valid Result was " + prevResult.get.toString)
+  }
+
+  private def fetchRemoteAPIResult(observedUrl: String): JsValue = {
+    try {
+      Json.parse(get(cleanJsonQuotes(observedUrl)))
+    }
+    catch {
+
+      // On Connectivity Errors Backoff the request and delay its processing
+
+      case ioExcept: IOException =>
+        ioExcept.printStackTrace()
+        JsNull
+
+      case socketTimeout: SocketTimeoutException =>
+        socketTimeout.printStackTrace()
+        JsNull
+
+
     }
   }
 
@@ -160,7 +184,9 @@ class Worker(period: Long) extends Thread {
   }
 
   private def cleanJsonQuotes(observedUrl: String): String = {
-    observedUrl.substring(1, observedUrl.length - 1)
+    if (observedUrl.charAt(0) == '\"' && observedUrl.charAt(observedUrl.length - 1) == '\"')
+      observedUrl.substring(1, observedUrl.length - 1)
+    else observedUrl
   }
 
   private def getJsonObservedUrl(jsonBody: JsValue): String = {
