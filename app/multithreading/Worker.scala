@@ -52,12 +52,13 @@ class Worker(period: Long) extends Thread {
       // Get data from observation url
       val observedUrl = getJsonObservedUrl(jsonBody)
       val resultBody = fetchRemoteAPIResult(observedUrl)
+      val triggeredResult = fetchRemoteAPIResult((jsonBody \ "webhook").get.toString())
       if (resultBody == JsNull) {
         // Add request at the end and update its next time period
         delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
 
       } else {
-        Logger.logger.debug("Result Fetched " + resultBody)
+        Logger.logger.debug("Result Fetched " + triggeredResult)
 
         // Get Property Lists and their target list
         val propertyList = getJsonCriteriaList(jsonBody)
@@ -72,10 +73,10 @@ class Worker(period: Long) extends Thread {
 
           publishPreviousResult(redisClient, jsonBody, prevResult)
 
-          publishCurrentResult(redisClient, jsonBody, resultBody)
+          publishCurrentResult(redisClient, jsonBody, triggeredResult)
 
           // Store Previous result
-          updatePreviousResult(redisClient, jsonBody, resultBody)
+          updatePreviousResult(redisClient, jsonBody, triggeredResult)
         }
         // Update time period and Add to queue
         redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
