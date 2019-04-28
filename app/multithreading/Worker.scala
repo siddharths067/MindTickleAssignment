@@ -52,8 +52,12 @@ class Worker(period: Long) extends Thread {
       // Get data from observation url
       val observedUrl = getJsonObservedUrl(jsonBody)
       val resultBody = fetchRemoteAPIResult(observedUrl)
-      val triggeredResult = fetchRemoteAPIResult((jsonBody \ "webhook").get.toString())
-      if (resultBody == JsNull) {
+
+      // Get Data from Webhook URL
+      val webhookUrl = fetchJsonWebhookUrl(jsonBody)
+      val triggeredResult = fetchRemoteAPIResult(webhookUrl)
+
+      if (resultBody == JsNull || triggeredResult == JsNull) {
         // Add request at the end and update its next time period
         delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
 
@@ -84,16 +88,23 @@ class Worker(period: Long) extends Thread {
     }
   }
 
+  private def fetchJsonWebhookUrl(jsonBody: JsValue): String = {
+    (jsonBody \ "webhook").get.toString()
+  }
+
   private def fetchRemoteResultProperties(resultBody: JsValue, propertyList: List[JsValue]): List[String] = {
+    // Finds criteria properties in result
     propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
   }
 
   private def delayFailedRequestProcessing(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
+    // Recovering from errors by delaying request processing to next timestep
     Logger.logger.debug("Recovering from error, action delayed")
     redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
   }
 
   private def updatePreviousResult(redisClient: RedisClient, jsonBody: JsValue, resultBody: JsValue): Boolean = {
+    // Updates previous result
     redisClient.set(getPrevResultKeyId(jsonBody), resultBody.toString)
   }
 
@@ -112,6 +123,7 @@ class Worker(period: Long) extends Thread {
   }
 
   private def fetchRemoteAPIResult(observedUrl: String): JsValue = {
+    // Gets remote API result
     try {
       Json.parse(get(cleanJsonQuotes(observedUrl)))
     }
@@ -147,12 +159,14 @@ class Worker(period: Long) extends Thread {
     (jsonBody \ "reqId").get.toString.toLong
   }
 
+
   @throws(classOf[java.io.IOException])
   @throws(classOf[java.net.SocketTimeoutException])
   def get(url: String,
           connectTimeout: Int = 5000,
           readTimeout: Int = 5000,
           requestMethod: String = "GET"): String = {
+    // Actual Implementation of remote URL fetch
     import java.net.{HttpURLConnection, URL}
     val connection = new URL(url).openConnection.asInstanceOf[HttpURLConnection]
     connection.setConnectTimeout(connectTimeout)
