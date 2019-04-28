@@ -40,6 +40,9 @@ system always has minimum number of threads, i.e **when no further requests are 
 have minimum number of active threads so that the time needed to process them plus the time needed
 to fetch them from the remote server never delays the next request**
 
+* To maintain this policy we also kill threads if they are more than needed to avoid delay
+This ensures that the threads are always locked on a url to fire at an instant on appropriate times
+
 * The System can be scaled horizontally by additionally partitioning time periods
 in separate redis instances.
 
