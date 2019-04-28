@@ -24,7 +24,7 @@ An Initial Build of Zapier Like Integration Service using Redis for Queuing
   * webhook stores the url to trigger 
   * cr stores the criterias to be checked
   * cr values store the respective criteria values
-  * time_period stores the observation interval
+  * time_period stores the observation interval in minutes
   
 ### Logic of the System
 
@@ -58,3 +58,4 @@ directly use a publisher/subscriber or log aggregation utility like Kafka
      $run
 
 * Use Postman to test request at localhost:9000/submit , use example request from above
+ * Postman collection https://www.getpostman.com/collections/9ed99c4008ca9f6f633c
