@@ -22,12 +22,6 @@ class Worker(period: Long) extends Thread {
       else getNested((obj \ properties.head).get, properties.tail)
     */
 
-  /*
-  *
-  * Fetch data from the REST API to be monitored
-  *
-  * */
-
   override def run(): Unit = {
 
     Logger.logger.debug("Worker Launched " + this.getId)
