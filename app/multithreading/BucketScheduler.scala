@@ -11,6 +11,8 @@ class BucketScheduler(period: Long) extends Thread {
     val myQueue = generateWorkerQId
     val redisClient = new RedisClient("localhost", 6379)
     while (true) {
+      // Synchronize with the late Publisher here, Only done when all publishers in bucket are late
+      while (redisClient.llen(myQueue).get == 0) {}
       val jsonBody = Json.parse(getQHead(myQueue, redisClient))
       Logger.logger.debug("Json Body fetched from queue " + jsonBody.toString())
 
