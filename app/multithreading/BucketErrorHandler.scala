@@ -4,6 +4,13 @@ import com.redis.RedisClient
 import play.api.Logger
 import play.api.libs.json.{JsObject, JsValue, Json}
 
+
+/**
+  *
+  * Handles Error Conditions when the Bucket Worker fails and the request processing is to be delayed
+  *
+  **/
+
 class BucketErrorHandler(period: Long, jsonBody: JsValue) extends Thread {
 
   override def run(): Unit = {
@@ -24,6 +31,7 @@ class BucketErrorHandler(period: Long, jsonBody: JsValue) extends Thread {
   }
 
   private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
+    // Update the next time when this request has to be processed
     jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
   }
 

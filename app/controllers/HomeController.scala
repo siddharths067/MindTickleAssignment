@@ -64,6 +64,7 @@ class HomeController @Inject()(system: ActorSystem, cc: ControllerComponents) ex
 
     val incr = redisClient.incr("requestCountForQ" + period.toString)
     // Check if the request was the first in the bucket
+    // Launch a bucket scheduler
     if (incr.get == 1)
       new BucketScheduler(period.toLong).start()
   }

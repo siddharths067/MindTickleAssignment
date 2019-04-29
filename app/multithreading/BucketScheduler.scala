@@ -11,7 +11,6 @@ class BucketScheduler(period: Long) extends Thread {
     val myQueue = generateWorkerQId
     val redisClient = new RedisClient("localhost", 6379)
     while (true) {
-      val timestamp = getTimestamp(redisClient)
       val jsonBody = Json.parse(getQHead(myQueue, redisClient))
       Logger.logger.debug("Json Body fetched from queue " + jsonBody.toString())
 
@@ -35,6 +34,7 @@ class BucketScheduler(period: Long) extends Thread {
   }
 
   private def getTimestamp(redisClient: RedisClient) = {
+    // get current timestamp
     redisClient.time.get.head.get.toLong
   }
 
@@ -43,10 +43,11 @@ class BucketScheduler(period: Long) extends Thread {
   }
 
   private def getQHead(myQueue: String, redisClient: RedisClient): String = {
+    // Removed when Bucket Scheduler was added
     // If Number of threads is more than minimum needed to avoid delay, kill threads
     val headElement = redisClient.rpop(myQueue)
-    if (headElement.isEmpty)
-      this.join()
+    /*if (headElement.isEmpty)
+      this.join()*/
     headElement.get
   }
 

@@ -3,9 +3,8 @@ package multithreading
 import java.io.IOException
 import java.net.SocketTimeoutException
 
-import com.redis.RedisClient
 import play.api.Logger
-import play.api.libs.json.{JsNull, JsObject, JsValue, Json}
+import play.api.libs.json.{JsNull, JsValue, Json}
 
 import scala.io.Source
 
@@ -56,11 +55,6 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
   }
 
 
-  private def generateWorkerQId: String = {
-    "worker_queue_" + period.toString
-  }
-
-
   private def fetchJsonWebhookUrl(jsonBody: JsValue): String = {
     (jsonBody \ "webhook").get.toString()
   }
@@ -68,12 +62,6 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
   private def fetchRemoteResultProperties(resultBody: JsValue, propertyList: List[JsValue]): List[String] = {
     // Finds criteria properties in result
     propertyList.map(x => getFirstElementFromPropertyMatch(resultBody, x) toString)
-  }
-
-  private def delayFailedRequestProcessing(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
-    // Recovering from errors by delaying request processing to next timestep
-    Logger.logger.debug("Recovering from error, action delayed")
-    redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
   }
 
 
@@ -96,15 +84,6 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
 
 
     }
-  }
-
-  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
-    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
-  }
-
-
-  private def getRequestId(jsonBody: JsValue): Long = {
-    (jsonBody \ "reqId").get.toString.toLong
   }
 
 
@@ -154,37 +133,4 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
     (jsonBody \ "observed_url").get.toString()
   }
 
-  private def waitTillNextRequestTime(redisClient: RedisClient, requestStamp: Long): Unit = {
-    // Added one second padding since OS scheduler work independently, hopefully that would cover it
-    val waitTimeInMilliseconds = ((requestStamp - getTimestamp(redisClient)) - 1) * 1000
-    this.synchronized {
-      if (waitTimeInMilliseconds > 0)
-        this.wait(waitTimeInMilliseconds)
-      this.notifyAll()
-    }
-  }
-
-  /*
-    private def requestNewWorker(timestamp: Long, jsonBody: JsValue): Unit = {
-      if (getJsonTimePeriod(jsonBody) < timestamp) {
-        Logger.logger.debug("Requesting a new worker ")
-        new Worker(period).start()
-      }
-    }
-  */
-  private def getJsonTimePeriod(jsonBody: JsValue): Long = {
-    (jsonBody \ "time_period").get.toString().toLong
-  }
-
-  private def getQHead(myQueue: String, redisClient: RedisClient): String = {
-    // If Number of threads is more than minimum needed to avoid delay, kill threads
-    val headElement = redisClient.rpop(myQueue)
-    if (headElement.isEmpty)
-      this.join()
-    headElement.get
-  }
-
-  private def getTimestamp(redisClient: RedisClient) = {
-    redisClient.time.get.head.get.toLong
-  }
 }
