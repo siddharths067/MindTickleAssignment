@@ -3,7 +3,7 @@ package controllers
 import akka.actor.ActorSystem
 import com.redis._
 import javax.inject._
-import multithreading.Worker
+import multithreading.BucketScheduler
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -65,6 +65,6 @@ class HomeController @Inject()(system: ActorSystem, cc: ControllerComponents) ex
     val incr = redisClient.incr("requestCountForQ" + period.toString)
     // Check if the request was the first in the bucket
     if (incr.get == 1)
-      new Worker(period.toLong).start()
+      new BucketScheduler(period.toLong).start()
   }
 }

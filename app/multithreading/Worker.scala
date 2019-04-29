@@ -10,7 +10,7 @@ import play.api.libs.json.{JsNull, JsObject, JsValue, Json}
 import scala.io.Source
 
 
-class Worker(period: Long) extends Thread {
+class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
   /*
 
   This method would although allow property validation, it will fail if user forgets the inheritance
@@ -25,24 +25,16 @@ class Worker(period: Long) extends Thread {
   override def run(): Unit = {
 
     Logger.logger.debug("Worker Launched " + this.getId)
-    val myQueue = generateWorkerQId
 
-    val redisClient = new RedisClient("localhost", 6379)
-    while (true) {
 
       // Fetch timestamp and get JSON Body
-      val timestamp = getTimestamp(redisClient)
-      val jsonBody = Json.parse(getQHead(myQueue, redisClient))
-      Logger.logger.debug("Json Body fetched from queue " + jsonBody.toString())
+
 
 
       // Request new Workers if there is a backlog detected
-      requestNewWorker(timestamp, jsonBody)
-      val requestStamp = getJsonTimePeriod(jsonBody)
+    //requestNewWorker(timestamp, jsonBody)
 
-      // If no backlog and this request is early sleep out the time
-      waitTillNextRequestTime(redisClient, requestStamp)
-
+    val jsonBody = requestJsonBody
       // Get data from observation url
       val observedUrl = getJsonObservedUrl(jsonBody)
       val resultBody = fetchRemoteAPIResult(observedUrl)
@@ -52,6 +44,9 @@ class Worker(period: Long) extends Thread {
       val triggeredResult = fetchRemoteAPIResult(webhookUrl)
 
       if (resultBody == JsNull || triggeredResult == JsNull) {
+
+        val redisClient = new RedisClient("localhost", 6379)
+        val myQueue = generateWorkerQId
         // Add request at the end and update its next time period
         delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
 
@@ -65,22 +60,17 @@ class Worker(period: Long) extends Thread {
         // Fetch body parameters from observation URL
         val resultList = fetchRemoteResultProperties(resultBody, propertyList)
         if (resultList == valList) {
-          // Get Previous Result
-          val prevResult = redisClient.get(getPrevResultKeyId(jsonBody))
-
-
-          publishPreviousResult(redisClient, jsonBody, prevResult)
-
-          publishCurrentResult(redisClient, jsonBody, triggeredResult)
-
-          // Store Previous result
-          updatePreviousResult(redisClient, jsonBody, triggeredResult)
+          new BucketPublisher(period, jsonBody, triggeredResult).start()
         }
-        // Update time period and Add to queue
-        redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+
       }
-    }
   }
+
+
+  private def generateWorkerQId: String = {
+    "worker_queue_" + period.toString
+  }
+
 
   private def fetchJsonWebhookUrl(jsonBody: JsValue): String = {
     (jsonBody \ "webhook").get.toString()
@@ -97,24 +87,6 @@ class Worker(period: Long) extends Thread {
     redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
   }
 
-  private def updatePreviousResult(redisClient: RedisClient, jsonBody: JsValue, resultBody: JsValue): Boolean = {
-    // Updates previous result
-    redisClient.set(getPrevResultKeyId(jsonBody), resultBody.toString)
-  }
-
-  private def publishCurrentResult(redisClient: RedisClient, jsonBody: JsValue, resultBody: JsValue): Option[Long] = {
-    // Output and Publish Request Result
-    Logger.logger.debug("The Result is " + resultBody.toString)
-    redisClient.publish(getChannelKey(jsonBody), "The Result is " + resultBody.toString)
-  }
-
-  private def publishPreviousResult(redisClient: RedisClient, jsonBody: JsValue, prevResult: Option[String]): Any = {
-    // If Previous Result is defined output and publish it
-    if (prevResult.isDefined)
-      Logger.logger.debug("Previoud Valid Result was " + prevResult.get.toString)
-    if (prevResult.isDefined)
-      redisClient.publish(getChannelKey(jsonBody), "Previoud Valid Result was " + prevResult.get.toString)
-  }
 
   private def fetchRemoteAPIResult(observedUrl: String): JsValue = {
     // Gets remote API result
@@ -137,17 +109,10 @@ class Worker(period: Long) extends Thread {
     }
   }
 
-  private def generateWorkerQId: String = {
-    "worker_queue_" + period.toString
+  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
+    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
   }
 
-  private def getChannelKey(jsonBody: JsValue) = {
-    "Channel" + "prevReqRes" + getRequestId(jsonBody)
-  }
-
-  private def getPrevResultKeyId(jsonBody: JsValue) = {
-    "prevReqRes" + getRequestId(jsonBody)
-  }
 
   private def getRequestId(jsonBody: JsValue): Long = {
     (jsonBody \ "reqId").get.toString.toLong
@@ -176,9 +141,7 @@ class Worker(period: Long) extends Thread {
     getPropertyRecursively(resultBody, x).toList.head
   }
 
-  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
-    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
-  }
+
 
   private def getPropertyRecursively(resultBody: JsValue, x: JsValue): Seq[JsValue] = {
     resultBody \\ cleanJsonQuotes(x.toString())
@@ -212,13 +175,14 @@ class Worker(period: Long) extends Thread {
     }
   }
 
-  private def requestNewWorker(timestamp: Long, jsonBody: JsValue): Unit = {
-    if (getJsonTimePeriod(jsonBody) < timestamp) {
-      Logger.logger.debug("Requesting a new worker ")
-      new Worker(period).start()
+  /*
+    private def requestNewWorker(timestamp: Long, jsonBody: JsValue): Unit = {
+      if (getJsonTimePeriod(jsonBody) < timestamp) {
+        Logger.logger.debug("Requesting a new worker ")
+        new Worker(period).start()
+      }
     }
-  }
-
+  */
   private def getJsonTimePeriod(jsonBody: JsValue): Long = {
     (jsonBody \ "time_period").get.toString().toLong
   }
