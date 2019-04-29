@@ -82,6 +82,9 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
         socketTimeout.printStackTrace()
         JsNull
 
+      case unusualException: Throwable =>
+        unusualException.printStackTrace()
+        JsNull
 
     }
   }

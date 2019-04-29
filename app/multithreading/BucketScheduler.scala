@@ -2,7 +2,7 @@ package multithreading
 
 import com.redis.RedisClient
 import play.api.Logger
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsObject, JsValue, Json}
 
 class BucketScheduler(period: Long) extends Thread {
 
@@ -11,8 +11,12 @@ class BucketScheduler(period: Long) extends Thread {
     val myQueue = generateWorkerQId
     val redisClient = new RedisClient("localhost", 6379)
     while (true) {
-      // Synchronize with the late Publisher here, Only done when all publishers in bucket are late
-      while (redisClient.llen(myQueue).get == 0) {}
+      /*
+      No Need for Waiting for all Publishers, Publishing is an independent operation.
+      The Queue for an instantiated Bucket Handler will always be non empty since we immediately
+      Add the updated element at the end of the loop
+      */
+
       val jsonBody = Json.parse(getQHead(myQueue, redisClient))
       Logger.logger.debug("Json Body fetched from queue " + jsonBody.toString())
 
@@ -21,6 +25,9 @@ class BucketScheduler(period: Long) extends Thread {
       // If no backlog and this request is early sleep out the time
       waitTillNextRequestTime(redisClient, requestStamp)
       new Worker(period, jsonBody).start()
+
+      // Update Time Period and Proceed
+      redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
 
     }
   }
@@ -56,4 +63,11 @@ class BucketScheduler(period: Long) extends Thread {
   private def generateWorkerQId: String = {
     "worker_queue_" + period.toString
   }
+
+
+  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
+    // Update Timestamp
+    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
+  }
+
 }

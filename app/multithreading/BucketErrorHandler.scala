@@ -17,17 +17,20 @@ class BucketErrorHandler(period: Long, jsonBody: JsValue) extends Thread {
     val redisClient = new RedisClient("localhost", 6379)
     val myQueue = generateWorkerQId
     // Add request at the end and update its next time period
-    delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
+    reportRequestProcessingErrorInLog(myQueue, redisClient, jsonBody)
   }
 
   private def generateWorkerQId: String = {
     "worker_queue_" + period.toString
   }
 
-  private def delayFailedRequestProcessing(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
+  private def reportRequestProcessingErrorInLog(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
     // Recovering from errors by delaying request processing to next timestep
-    Logger.logger.debug("Recovering from error, action delayed")
-    redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+    Logger.logger.debug("Recovering from error, action delayed for Request ID : " + getRequestId(jsonBody))
+  }
+
+  private def getRequestId(jsonBody: JsValue): Long = {
+    (jsonBody \ "reqId").get.toString.toLong
   }
 
   private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {

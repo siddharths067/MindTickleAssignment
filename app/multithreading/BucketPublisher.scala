@@ -32,7 +32,7 @@ class BucketPublisher(period: Long, jsBody: JsValue, webhookResult: JsValue) ext
     updatePreviousResult(redisClient, jsonBody, triggeredResult)
 
     // Update time period and Add to queue
-    redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
+    //redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
 
   }
 
