@@ -43,7 +43,7 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
 
         // Get Property Lists and their target list
         val propertyList = getJsonCriteriaList(jsonBody)
-        val valList = getJsonPropertyCriteraValues(jsonBody).map(x => cleanJsonQuotes(x.toString()))
+        val valList = getJsonPropertyCriteriaValues(jsonBody).map(x => cleanJsonQuotes(x.toString()))
 
         // Fetch body parameters from observation URL
         val resultList = fetchRemoteResultProperties(resultBody, propertyList)
@@ -118,7 +118,7 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
     resultBody \\ cleanJsonQuotes(x.toString())
   }
 
-  private def getJsonPropertyCriteraValues(jsonBody: JsValue) = {
+  private def getJsonPropertyCriteriaValues(jsonBody: JsValue) = {
     (jsonBody \ "cr_values").get.as[List[JsValue]]
   }
 

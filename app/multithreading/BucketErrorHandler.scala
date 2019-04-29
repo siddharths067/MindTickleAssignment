@@ -2,7 +2,7 @@ package multithreading
 
 import com.redis.RedisClient
 import play.api.Logger
-import play.api.libs.json.{JsObject, JsValue, Json}
+import play.api.libs.json.JsValue
 
 
 /**
@@ -15,16 +15,11 @@ class BucketErrorHandler(period: Long, jsonBody: JsValue) extends Thread {
 
   override def run(): Unit = {
     val redisClient = new RedisClient("localhost", 6379)
-    val myQueue = generateWorkerQId
     // Add request at the end and update its next time period
-    reportRequestProcessingErrorInLog(myQueue, redisClient, jsonBody)
+    reportRequestProcessingErrorInLog(redisClient, jsonBody)
   }
 
-  private def generateWorkerQId: String = {
-    "worker_queue_" + period.toString
-  }
-
-  private def reportRequestProcessingErrorInLog(myQueue: String, redisClient: RedisClient, jsonBody: JsValue): Unit = {
+  private def reportRequestProcessingErrorInLog(redisClient: RedisClient, jsonBody: JsValue): Unit = {
     // Recovering from errors by delaying request processing to next timestep
     Logger.logger.debug("Recovering from error, action delayed for Request ID : " + getRequestId(jsonBody))
   }
@@ -32,14 +27,4 @@ class BucketErrorHandler(period: Long, jsonBody: JsValue) extends Thread {
   private def getRequestId(jsonBody: JsValue): Long = {
     (jsonBody \ "reqId").get.toString.toLong
   }
-
-  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
-    // Update the next time when this request has to be processed
-    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
-  }
-
-  private def getTimestamp(redisClient: RedisClient) = {
-    redisClient.time.get.head.get.toLong
-  }
-
 }

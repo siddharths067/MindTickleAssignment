@@ -2,7 +2,7 @@ package multithreading
 
 import com.redis.RedisClient
 import play.api.Logger
-import play.api.libs.json.{JsObject, JsValue, Json}
+import play.api.libs.json.JsValue
 
 
 /*
@@ -17,7 +17,6 @@ class BucketPublisher(period: Long, jsBody: JsValue, webhookResult: JsValue) ext
   override def run(): Unit = {
 
 
-    val myQueue = generateWorkerQId
     val redisClient = new RedisClient("localhost", 6379)
 
     val jsonBody = jsBody
@@ -34,20 +33,6 @@ class BucketPublisher(period: Long, jsBody: JsValue, webhookResult: JsValue) ext
     // Update time period and Add to queue
     //redisClient.lpush(myQueue, updateTimePeriod(redisClient, jsonBody))
 
-  }
-
-  private def getTimestamp(redisClient: RedisClient) = {
-    // get current timestamp
-    redisClient.time.get.head.get.toLong
-  }
-
-  private def updateTimePeriod(redisClient: RedisClient, jsonBody: JsValue): JsObject = {
-    // Update Timestamp
-    jsonBody.as[JsObject] ++ Json.obj("time_period" -> (getTimestamp(redisClient) + period * 60))
-  }
-
-  private def generateWorkerQId: String = {
-    "worker_queue_" + period.toString
   }
 
   private def getChannelKey(jsonBody: JsValue) = {
