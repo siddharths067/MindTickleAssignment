@@ -13,11 +13,12 @@ An Initial Build of Zapier Like Integration Service
 * app/controllers/HomeController.scala has the controller logic
 https://github.com/siddharths067/MindTickleAssignment/blob/master/app/controllers/HomeController.scala
 
-* app/multithreading/BucketScheduler.scala has the scheduler for each bucket
-
-* app/multithreading/BucketPublisher.scala has the publisher worker logic
-
-* app/multithreading/BucketErrorHandler.scala has the Bucket Error Handler
+* app/multithreading/BucketScheduler.scala has the scheduler for each bucket (launched lazily)
+https://github.com/siddharths067/MindTickleAssignment/blob/master/app/multithreading/BucketScheduler.scala
+* app/multithreading/BucketPublisher.scala has the publisher worker logic (launched on successful processing)
+https://github.com/siddharths067/MindTickleAssignment/blob/master/app/multithreading/BucketPublisher.scala
+* app/multithreading/BucketErrorHandler.scala has the Bucket Error Handler (launched on error)
+https://github.com/siddharths067/MindTickleAssignment/blob/master/app/multithreading/BucketErrorHandler.scala
 
 * app/multithreading/Worker.scala has the Worker logic
 https://github.com/siddharths067/MindTickleAssignment/blob/master/app/multithreading/Worker.scala
