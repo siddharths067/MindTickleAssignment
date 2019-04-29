@@ -26,14 +26,6 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
 
     Logger.logger.debug("Worker Launched " + this.getId)
 
-
-      // Fetch timestamp and get JSON Body
-
-
-
-      // Request new Workers if there is a backlog detected
-    //requestNewWorker(timestamp, jsonBody)
-
     val jsonBody = requestJsonBody
       // Get data from observation url
       val observedUrl = getJsonObservedUrl(jsonBody)
@@ -44,11 +36,8 @@ class Worker(period: Long, requestJsonBody: JsValue) extends Thread {
       val triggeredResult = fetchRemoteAPIResult(webhookUrl)
 
       if (resultBody == JsNull || triggeredResult == JsNull) {
-
-        val redisClient = new RedisClient("localhost", 6379)
-        val myQueue = generateWorkerQId
-        // Add request at the end and update its next time period
-        delayFailedRequestProcessing(myQueue, redisClient, jsonBody)
+        Logger.logger.debug("Error handler launched ")
+        new BucketErrorHandler(period, jsonBody).start()
 
       } else {
         Logger.logger.debug("Result Fetched " + triggeredResult)

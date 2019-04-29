@@ -17,6 +17,8 @@ https://github.com/siddharths067/MindTickleAssignment/blob/master/app/controller
 
 * app/multithreading/BucketPublisher.scala has the publisher worker logic
 
+* app/multithreading/BucketErrorHandler.scala has the Bucket Error Handler
+
 * app/multithreading/Worker.scala has the Worker logic
 https://github.com/siddharths067/MindTickleAssignment/blob/master/app/multithreading/Worker.scala
 
@@ -54,7 +56,7 @@ All throughout the workers we maintain the monotonicity of the timeperiods of ea
 Worker Queue, by always taking the current timestamp and incrementing at the end. 
 Each Bucket scheduler launches a worker when needed, the worker then does the API calls and checks
 the validity of the response according to the user condition provided. If and only if an error occurs
-does the bucket scheduler delays the request processing. If successfull without any error the bucket
+does the bucket error handler delays the request processing. If successfull without any error the bucket
 scheduler then passes on the job to the BucketPublisher which then publishes the result to the channel
 
 * **The System can be scaled horizontally by additionally partitioning time periods
@@ -80,7 +82,8 @@ Channel, Although Kafka would be a better for Log Aggregation use case
  
  
    #### OUTPUT
-   * Method 1: View the Debug Log in the SBT shell
+   * Method 1: View the Debug Log in the SBT shell (Large Data is fetched so can quickly clog it)
    * Method 2: Subscribe to the channel ChannelprevReqResN in redis where N is your request ID
    N=1 if the request was the first one to be fired. We generate the requestID in the controller
-   itself so it can always be returned instantaneously to the user through UI
+   itself so it can always be returned instantaneously to the user through UI. **This is the preferred
+   method**
